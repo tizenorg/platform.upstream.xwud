@@ -26,6 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
+/* $XFree86: xc/programs/xwud/xwud.c,v 3.7 2001/12/14 20:02:35 dawes Exp $ */
 
 /* xwud - marginally useful raster image undumper */
 
@@ -39,20 +40,44 @@ from The Open Group.
 #define  XK_LATIN1
 #include <X11/keysymdef.h>
 #include <errno.h>
+#include <stdlib.h>
 
-#ifdef X_NOT_STDC_ENV
-extern int errno;
-#endif
-
-extern char *malloc();
-unsigned Image_Size();
 Atom wm_protocols;
 Atom wm_delete_window;
 int split;
 
 char *progname;
 
-usage()
+static void usage(void);
+static Bool Read(char *ptr, int size, int nitems, FILE *stream);
+static void putImage(Display *dpy, Window image_win, GC gc, 
+		     XImage *out_image, int x, int y, int w, int h);
+static void putScaledImage(Display *display, Drawable d, GC gc, 
+			   XImage *src_image, int exp_x, int exp_y, 
+			   unsigned int exp_width, unsigned int exp_height, 
+			   unsigned int dest_width, unsigned dest_height);
+static void Latin1Upper(char *s);
+static void Extract_Plane(XImage *in_image, XImage *out_image, int plane);
+static int EffectiveSize(XVisualInfo *vinfo);
+static int VisualRank(int class);
+static int IsGray(Display *dpy, XStandardColormap *stdmap);
+static void Do_StdGray(Display *dpy, XStandardColormap *stdmap, int ncolors, 
+		       XColor *colors, XImage *in_image, XImage *out_image);
+static void Do_StdCol(Display *dpy, XStandardColormap *stdmap, int ncolors, 
+		      XColor *colors, XImage *in_image, XImage *out_image);
+static Colormap CopyColormapAndFree(Display *dpy, Colormap colormap);
+static void Do_Pseudo(Display *dpy, Colormap *colormap, int ncolors, 
+		      XColor *colors, XImage *in_image, XImage *out_image);
+static void Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap, 
+		      int ncolors, XColor *colors, 
+		      XImage *in_image, XImage *out_image);
+static unsigned int Image_Size(XImage *image);
+static void Error(char *string);
+static void _swapshort(char *bp, unsigned int n);
+static void _swaplong(char *bp, unsigned int n);
+
+static void
+usage(void)
 {
     fprintf(stderr, "usage: %s [-in <file>] [-noclick] [-geometry <geom>] [-display <display>]\n", progname);
     fprintf(stderr, "            [-new] [-std <maptype>] [-raw] [-vis <vis-type-or-id>]\n");
@@ -61,12 +86,8 @@ usage()
     exit(1);
 }
 
-Bool
-Read(ptr, size, nitems, stream)
-    char *ptr;
-    int size;
-    int nitems;
-    FILE *stream;
+static Bool
+Read(char *ptr, int size, int nitems, FILE *stream)
 {
     size *= nitems;
     while (size) {
@@ -79,9 +100,8 @@ Read(ptr, size, nitems, stream)
     return True;
 }
 
-main(argc, argv)
-    int argc;
-    char **argv;
+int 
+main(int argc, char *argv[])
 {
     Display *dpy;
     int screen;
@@ -113,7 +133,7 @@ main(argc, argv)
     XSizeHints hints;
     XTextProperty textprop;
     XClassHint class_hint;
-    XColor *colors, color, igncolor;
+    XColor *colors = NULL, color, igncolor;
     Window image_win;
     Colormap colormap;
     XEvent event;
@@ -125,7 +145,7 @@ main(argc, argv)
     FILE *in_file = stdin;
     char *map_name;
     Atom map_prop;
-    XStandardColormap *stdmaps, *stdmap;
+    XStandardColormap *stdmaps, *stdmap = NULL;
     char c;
     int win_width, win_height;
 
@@ -653,14 +673,12 @@ main(argc, argv)
 	    break;
 	}
     }
+    exit(0);
 }
 
-putImage (dpy, image_win, gc, out_image, x, y, w, h)
-    Display	*dpy;
-    Window	image_win;
-    GC		gc;
-    XImage	*out_image;
-    int		x, y, w, h;
+static void
+putImage(Display *dpy, Window image_win, GC gc, XImage *out_image, 
+	 int x, int y, int w, int h)
 {
 #define SPLIT_SIZE  100
     int	t_x, t_y, t_w, t_h;
@@ -693,18 +711,11 @@ typedef struct {
   Dimension *width, *height;
 } Table;
 
-putScaledImage(display, d, gc, src_image, exp_x, exp_y,
-	       exp_width, exp_height, dest_width, dest_height)
-    Display*		 display;
-    Drawable		 d;
-    GC			 gc;
-    XImage*		 src_image;
-    int			 exp_x;
-    int			 exp_y;
-    unsigned int	 exp_width;
-    unsigned int	 exp_height;
-    unsigned int	 dest_width;
-    unsigned int	 dest_height;
+static void
+putScaledImage(Display *display, Drawable d, GC gc, XImage *src_image, 
+	       int exp_x, int exp_y,
+	       unsigned int exp_width, unsigned int exp_height, 
+	       unsigned int dest_width, unsigned dest_height)
 {
     XImage *dest_image;
     Position x, y, min_y, max_y, exp_max_y, src_x, src_max_x, src_y;
@@ -817,8 +828,8 @@ putScaledImage(display, d, gc, src_image, exp_x, exp_y,
     XDestroyImage(dest_image);
 }
 
-Latin1Upper(s)
-    char *s;
+static void
+Latin1Upper(char *s)
 {
     unsigned char *str = (unsigned char *)s;
     unsigned char c;
@@ -834,9 +845,8 @@ Latin1Upper(s)
     }
 }
 
-Extract_Plane(in_image, out_image, plane)
-    register XImage *in_image, *out_image;
-    int plane;
+static void
+Extract_Plane(XImage *in_image, XImage *out_image, int plane)
 {
     register int x, y;
 
@@ -846,9 +856,8 @@ Extract_Plane(in_image, out_image, plane)
 		      (XGetPixel(in_image, x, y) >> plane) & 1);
 }
 
-int
-EffectiveSize(vinfo)
-    XVisualInfo *vinfo;
+static int
+EffectiveSize(XVisualInfo *vinfo)
 {
     if ((vinfo->class == DirectColor) || (vinfo->class == TrueColor))
 	return (vinfo->red_mask | vinfo->green_mask | vinfo->blue_mask) + 1;
@@ -856,8 +865,8 @@ EffectiveSize(vinfo)
 	return vinfo->colormap_size;
 }
 
-VisualRank(class)
-    int class;
+static int
+VisualRank(int class)
 {
     switch (class) {
     case PseudoColor:
@@ -873,12 +882,12 @@ VisualRank(class)
     case StaticGray:
 	return 0;
     }
+    /* NOTREACHED */
+    return -1;
 }
 
-int
-IsGray(dpy, stdmap)
-    Display *dpy;
-    XStandardColormap *stdmap;
+static int
+IsGray(Display *dpy, XStandardColormap *stdmap)
 {
     XColor color;
 
@@ -887,12 +896,9 @@ IsGray(dpy, stdmap)
     return (color.green || color.blue);
 }
 
-Do_StdGray(dpy, stdmap, ncolors, colors, in_image, out_image)
-    Display *dpy;
-    XStandardColormap *stdmap;
-    int ncolors;
-    XColor *colors;
-    register XImage *in_image, *out_image;
+static void 
+Do_StdGray(Display *dpy, XStandardColormap *stdmap, 
+	   int ncolors, XColor *colors, XImage *in_image, XImage *out_image)
 {
     register int i, x, y;
     register XColor *color;
@@ -915,12 +921,9 @@ Do_StdGray(dpy, stdmap, ncolors, colors, in_image, out_image)
 
 #define MapVal(val,lim,mult) ((((val * lim) + 32768) / 65535) * mult)
 
-Do_StdCol(dpy, stdmap, ncolors, colors, in_image, out_image)
-    Display *dpy;
-    XStandardColormap *stdmap;
-    int ncolors;
-    XColor *colors;
-    register XImage *in_image, *out_image;
+static void
+Do_StdCol(Display *dpy, XStandardColormap *stdmap, 
+	  int ncolors, XColor *colors, XImage *in_image, XImage *out_image)
 {
     register int i, x, y;
     register XColor *color;
@@ -942,22 +945,19 @@ Do_StdCol(dpy, stdmap, ncolors, colors, in_image, out_image)
     }
 }
 
-Colormap
-CopyColormapAndFree(dpy, colormap)
-    Display *dpy;
-    Colormap colormap;
+static Colormap
+CopyColormapAndFree(Display *dpy, Colormap colormap)
 {
     if (colormap == DefaultColormap(dpy, DefaultScreen(dpy)))
 	return XCopyColormapAndFree(dpy, colormap);
     Error("Visual type is not large enough to hold all colors of the image.");
+    /*NOTREACHED*/
+    return (Colormap)0;
 }
 
-Do_Pseudo(dpy, colormap, ncolors, colors, in_image, out_image)
-    Display *dpy;
-    Colormap *colormap;
-    int ncolors;
-    XColor *colors;
-    register XImage *in_image, *out_image;
+static void
+Do_Pseudo(Display *dpy, Colormap *colormap, 
+	  int ncolors, XColor *colors, XImage *in_image, XImage *out_image)
 {
     register int i, x, y;
     register XColor *color;
@@ -979,13 +979,9 @@ Do_Pseudo(dpy, colormap, ncolors, colors, in_image, out_image)
     }
 }
 
-Do_Direct(dpy, header, colormap, ncolors, colors, in_image, out_image)
-    Display *dpy;
-    XWDFileHeader *header;
-    Colormap *colormap;
-    int ncolors;
-    XColor *colors;
-    XImage *in_image, *out_image;
+static void
+Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap, 
+	  int ncolors, XColor *colors, XImage *in_image, XImage *out_image)
 {
     register int x, y;
     XColor color;
@@ -1087,8 +1083,8 @@ Do_Direct(dpy, header, colormap, ncolors, colors, in_image, out_image)
     }
 }
 
-unsigned Image_Size(image)
-     XImage *image;
+static unsigned int 
+Image_Size(XImage *image)
 {
     if (image->format != ZPixmap)
       return(image->bytes_per_line * image->height * image->depth);
@@ -1096,8 +1092,8 @@ unsigned Image_Size(image)
     return((unsigned)image->bytes_per_line * image->height);
 }
 
-Error(string)
-	char *string;
+static void
+Error(char *string)
 {
 	fprintf(stderr, "xwud: Error => %s\n", string);
 	if (errno != 0) {
@@ -1107,9 +1103,8 @@ Error(string)
 	exit(1);
 }
 
-_swapshort (bp, n)
-    register char *bp;
-    register unsigned n;
+static void
+_swapshort(char *bp, unsigned int n)
 {
     register char c;
     register char *ep = bp + n;
@@ -1122,9 +1117,8 @@ _swapshort (bp, n)
     }
 }
 
-_swaplong (bp, n)
-    register char *bp;
-    register unsigned n;
+static void
+_swaplong(char *bp, unsigned int n)
 {
     register char c;
     register char *ep = bp + n;
