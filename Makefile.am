@@ -21,8 +21,8 @@
 
 bin_PROGRAMS = xwud
 
-xwud_CFLAGS = $(DEP_CFLAGS)
-xwud_LDADD = $(DEP_LIBS)
+xwud_CFLAGS = $(XWUD_CFLAGS)
+xwud_LDADD = $(XWUD_LIBS)
 
 xwud_SOURCES =	\
         xwud.c
