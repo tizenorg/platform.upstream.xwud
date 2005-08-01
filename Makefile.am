@@ -27,6 +27,6 @@ xwud_LDADD = $(XWUD_LIBS)
 xwud_SOURCES =	\
         xwud.c
 
-dist_man_MANS = \
+dist_man1_MANS = \
         xwud.man
 
