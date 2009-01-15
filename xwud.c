@@ -42,11 +42,11 @@ from The Open Group.
 #include <errno.h>
 #include <stdlib.h>
 
-Atom wm_protocols;
-Atom wm_delete_window;
-int split;
+static Atom wm_protocols;
+static Atom wm_delete_window;
+static int split;
 
-char *progname;
+static char *progname;
 
 static void usage(void);
 static Bool Read(char *ptr, int size, int nitems, FILE *stream);
