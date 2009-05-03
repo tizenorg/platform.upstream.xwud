@@ -1026,6 +1026,8 @@ Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap,
     if (in_image->depth <= 12) {
 	pix = 1 << in_image->depth;
 	pixels = (unsigned long *)malloc(sizeof(unsigned long) * pix);
+	if (pixels == NULL)
+	    Error("Unable to allocate memory for pixel conversion");
 	for (i = 0; i < pix; i++)
 	    pixels[i] = ~0L;
 	color.flags = DoRed | DoGreen | DoBlue;
@@ -1057,6 +1059,7 @@ Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap,
 		XPutPixel(out_image, x, y, color.pixel);
 	    }
 	}
+	free(pixels);
     } else if (header->visual_class == TrueColor &&
 	       vinfo->class == TrueColor) {
 	ormask = vinfo->red_mask;
@@ -1092,6 +1095,8 @@ Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap,
 	pix = 1 << 12;
 	pixels = (unsigned long *)malloc(sizeof(unsigned long) * pix);
 	rpixels = (unsigned long *)malloc(sizeof(unsigned long) * pix);
+	if ((pixels == NULL) || (rpixels == NULL))
+	    Error("Unable to allocate memory for pixel conversion");
 	for (i = 0; i < pix; i++) {
 	    pixels[i] = ~0L;
 	    rpixels[i] = ~0L;
@@ -1128,6 +1133,8 @@ Do_Direct(Display *dpy, XWDFileHeader *header, Colormap *colormap,
 		XPutPixel(out_image, x, y, color.pixel);
 	    }
 	}
+	free(pixels);
+	free(rpixels);
     }
 }
 
