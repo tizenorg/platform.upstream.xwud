@@ -37,7 +37,7 @@ xwud - image displayer for X
 is an X Window System image undumping utility.
 .I Xwud
 allows X users to display in a window an image saved
-in a specially formatted dump file, such as produced by \fIxwd(1)\fP.
+in a specially formatted dump file, such as produced by \fIxwd(__appmansuffix__)\fP.
 .SH OPTIONS
 .PP
 .TP 8
@@ -118,7 +118,7 @@ Allow the window to be resized, and scale the image to the size of the window.
 This option causes the image to be displayed using the specified
 Standard Colormap.  The property name is obtained by converting the
 type to upper case, prepending "RGB_", and appending "_MAP".
-Typical types are "best", "default", and "gray".  See \fIxstdcmap(1)\fP
+Typical types are "best", "default", and "gray".  See \fIxstdcmap(__appmansuffix__)\fP
 for one way of creating Standard Colormaps.
 .PP
 .TP 8
@@ -147,7 +147,7 @@ X Window Dump File format definition file.
 xwud doesn't handle big/deep images very well on servers that don't
 have the BIG-REQUESTS extension.
 .SH SEE ALSO
-xwd(1), xstdcmap(1), X(__miscmansuffix__)
+xwd(__appmansuffix__), xstdcmap(__appmansuffix__), X(__miscmansuffix__)
 .SH AUTHOR
 Bob Scheifler, MIT X Consortium
 
