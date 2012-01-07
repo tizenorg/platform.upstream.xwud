@@ -376,9 +376,7 @@ main(int argc, char *argv[])
     mask = VisualScreenMask;
     if (vis)
     {
-	char *vt;
-	vt = malloc(strlen(vis) + 1);
-	strcpy(vt, vis);
+	char *vt = strdup(vis);
 	Latin1Upper(vt);
 	if (strcmp(vt, "STATICGRAY") == 0) {
 	    vinfo.class = StaticGray;
