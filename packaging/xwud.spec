@@ -1,3 +1,5 @@
+%bcond_with x
+
 Summary: image displayer for X
 Name: xwud
 # NOTE: The package version should be set to the X11 major release from which
@@ -33,7 +35,7 @@ BuildRequires: libpng-devel
 BuildRequires: libXfixes-devel
 BuildRequires: libXi-devel >= 1.2
 BuildRequires: libXxf86vm-devel
-BuildRequires: xorg-x11-xbitmaps
+BuildRequires: pkgconfig(xbitmaps)
 
 Provides: xwud
 
@@ -44,6 +46,10 @@ Provides: xwud
 # Xaw app moves
 #Conflicts: xorg-x11-utils < 7.4-5.fc12
 #Conflicts: xorg-x11-server-utils < 7.4-8.fc12
+
+%if !%{with x}
+ExclusiveArch:
+%endif
 
 %description
 Xwud  is  an  X Window System image undumping utility.  Xwud allows X users to
